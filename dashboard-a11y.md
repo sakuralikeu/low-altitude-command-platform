@@ -1,0 +1,254 @@
+- main [ref=e54]:
+  - generic [ref=e55]:
+    - generic [ref=e56]:
+      - generic [ref=e58]: LA
+      - generic [ref=e60]:
+        - text: LOW-ALTITUDE COMMAND
+        - heading "无人机低空指挥调度平台" [level=1] [ref=e61]
+    - generic [ref=e62]:
+      - generic [ref=e63]:
+        - img [ref=e64]
+        - text: 运行态势 LIVE
+      - strong [ref=e70]: 15:30:56
+      - generic [ref=e71]: 08/12周三
+      - generic [ref=e72]:
+        - img [ref=e73]
+        - text: 多云 29℃
+    - generic [ref=e78]:
+      - generic [ref=e79]: 链路正常
+      - button "返回首页" [ref=e81] [cursor=pointer]:
+        - img [ref=e82]
+      - button "切换全屏" [ref=e85] [cursor=pointer]:
+        - img [ref=e86]
+      - generic [ref=e91]:
+        - img [ref=e92]
+        - generic [ref=e95]:
+          - text: 指挥中心管理员
+          - generic [ref=e96]: 市级指挥中心
+      - button "退出登录" [ref=e97] [cursor=pointer]:
+        - img [ref=e98]
+  - generic [ref=e101]:
+    - complementary [ref=e102]:
+      - generic [ref=e103]:
+        - generic [ref=e105]:
+          - text: OPERATION OVERVIEW
+          - heading "飞行总览" [level=2] [ref=e106]
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - article [ref=e109]:
+              - img [ref=e110]
+              - generic [ref=e113]: 方舱总数
+              - strong [ref=e114]: "11"
+              - text: 个
+            - article [ref=e115]:
+              - img [ref=e116]
+              - generic [ref=e119]: 飞手总数
+              - strong [ref=e120]: "12"
+              - text: 人
+            - article [ref=e121]:
+              - img [ref=e122]
+              - generic [ref=e126]: 飞行航线
+              - strong [ref=e127]: "48"
+              - text: 条
+            - article [ref=e128]:
+              - img [ref=e129]
+              - generic [ref=e131]: 累计架次
+              - strong [ref=e132]: "168"
+              - text: 架
+          - generic [ref=e133]:
+            - generic [ref=e134]:
+              - img [ref=e135]
+              - text: 累计里程
+              - strong [ref=e137]: 1,392.47 km
+            - generic [ref=e138]:
+              - img [ref=e139]
+              - text: 累计时长
+              - strong [ref=e142]: 35.1 h
+      - generic [ref=e143]:
+        - generic [ref=e145]:
+          - text: LATEST FLIGHT RECORDS
+          - heading "飞行案例 TOP10" [level=2] [ref=e146]
+        - list [ref=e148]:
+          - listitem [ref=e149]:
+            - generic [ref=e150]: "01"
+            - generic [ref=e151]:
+              - strong [ref=e152]: 巡检飞行记录-山区线路
+              - generic [ref=e153]: 山区巡检航线 · 1号方舱
+            - time [ref=e154]: 08-12 15:40
+          - listitem [ref=e155]:
+            - generic [ref=e156]: "02"
+            - generic [ref=e157]:
+              - strong [ref=e158]: 巡检飞行记录-河流区域
+              - generic [ref=e159]: 河道巡检航线 · 2号方舱
+            - time [ref=e160]: 08-12 07:50
+          - listitem [ref=e161]:
+            - generic [ref=e162]: "03"
+            - generic [ref=e163]:
+              - strong [ref=e164]: 夜间巡检-高压线路
+              - generic [ref=e165]: 高压走廊航线 · 4号方舱
+            - time [ref=e166]: 08-11 20:10
+          - listitem [ref=e167]:
+            - generic [ref=e168]: "04"
+            - generic [ref=e169]:
+              - strong [ref=e170]: 巡检飞行记录-变电站周边
+              - generic [ref=e171]: 变电站环线 · 3号方舱
+            - time [ref=e172]: 08-11 11:25
+          - listitem [ref=e173]:
+            - generic [ref=e174]: "05"
+            - generic [ref=e175]:
+              - strong [ref=e176]: 日常巡检-中心区域
+              - generic [ref=e177]: 中心城区航线 · 1号方舱
+            - time [ref=e178]: 08-10 16:30
+          - listitem [ref=e179]:
+            - generic [ref=e180]: "06"
+            - generic [ref=e181]:
+              - strong [ref=e182]: 应急巡检-故障点A
+              - generic [ref=e183]: 应急指点飞行 · 2号方舱
+            - time [ref=e184]: 08-10 08:00
+          - listitem [ref=e185]:
+            - generic [ref=e186]: "07"
+            - generic [ref=e187]:
+              - strong [ref=e188]: 巡检飞行记录-北区线路
+              - generic [ref=e189]: 北区巡检航线 · 3号方舱
+            - time [ref=e190]: 08-09 13:45
+          - listitem [ref=e191]:
+            - generic [ref=e192]: "08"
+            - generic [ref=e193]:
+              - strong [ref=e194]: 巡检飞行记录-南区线路
+              - generic [ref=e195]: 南区巡检航线 · 1号方舱
+            - time [ref=e196]: 08-09 09:15
+          - listitem [ref=e197]:
+            - generic [ref=e198]: "09"
+            - generic [ref=e199]:
+              - strong [ref=e200]: 巡检飞行记录-西区线路
+              - generic [ref=e201]: 西区巡检航线 · 2号方舱
+            - time [ref=e202]: 08-08 14:20
+          - listitem [ref=e203]:
+            - generic [ref=e204]: "10"
+            - generic [ref=e205]:
+              - strong [ref=e206]: 巡检飞行记录-东区线路
+              - generic [ref=e207]: 东区巡检航线 · 1号方舱
+            - time [ref=e208]: 08-08 10:30
+    - generic [ref=e209]:
+      - generic [ref=e210]:
+        - article [ref=e211]:
+          - img [ref=e212]
+          - generic [ref=e214]:
+            - generic [ref=e215]: 执行中
+            - strong [ref=e216]: "3"
+          - generic [ref=e217]: 架
+        - article [ref=e218]:
+          - img [ref=e219]
+          - generic [ref=e221]:
+            - generic [ref=e222]: 运行告警
+            - strong [ref=e223]: "1"
+          - generic [ref=e224]: 条
+        - article [ref=e225]:
+          - img [ref=e226]
+          - generic [ref=e229]:
+            - generic [ref=e230]: 今日任务
+            - strong [ref=e231]: "120"
+          - generic [ref=e232]: 项
+      - region "无人机实时运行地图" [ref=e233]:
+        - generic [ref=e235]:
+          - button "海巡-01，重点道路巡检，电量 82%" [ref=e253] [cursor=pointer]:
+            - img [ref=e254]
+            - generic [ref=e256]: 海巡-01
+          - button "城巡-07，河道例行巡检，电量 64%" [ref=e257] [cursor=pointer]:
+            - img [ref=e258]
+            - generic [ref=e260]: 城巡-07
+          - button "应急-03，应急现场勘察，电量 31%" [ref=e261] [cursor=pointer]:
+            - img [ref=e262]
+            - generic [ref=e264]: 应急-03
+          - button "交通-12，待命，电量 96%" [ref=e265] [cursor=pointer]:
+            - img [ref=e266]
+            - generic [ref=e268]: 交通-12
+        - generic [ref=e269]:
+          - generic [ref=e271]: 演示底图 · 待配置高德 Key
+          - strong [ref=e272]: 遥测在线
+        - generic "底图类型" [ref=e273]:
+          - button "切换卫星图" [ref=e274] [cursor=pointer]:
+            - img [ref=e275]
+          - button "切换电子地图" [ref=e281] [cursor=pointer]:
+            - img [ref=e282]
+          - button "切换暗色地图" [ref=e284] [cursor=pointer]:
+            - img [ref=e285]
+        - generic "地图缩放" [ref=e287]:
+          - button "放大地图" [ref=e288] [cursor=pointer]:
+            - img [ref=e289]
+          - button "缩小地图" [ref=e290] [cursor=pointer]:
+            - img [ref=e291]
+          - button "重置地图视野" [ref=e292] [cursor=pointer]:
+            - img [ref=e293]
+        - generic [ref=e296]:
+          - generic [ref=e297]: 执行中
+          - generic [ref=e299]: 待命
+          - generic [ref=e301]: 告警
+        - generic [ref=e303]:
+          - img [ref=e304]
+          - text: 上海市低空运行试验区
+          - generic [ref=e306]: 31.2304°N · 121.4737°E
+    - complementary [ref=e307]:
+      - generic [ref=e308]:
+        - generic [ref=e309]:
+          - generic [ref=e310]:
+            - text: TASK PERFORMANCE
+            - heading "飞行任务排行榜" [level=2] [ref=e311]
+          - generic "排行统计周期" [ref=e312]:
+            - button "今日" [ref=e313] [cursor=pointer]
+            - button "本周" [ref=e314] [cursor=pointer]
+            - button "本月" [pressed] [ref=e315] [cursor=pointer]
+            - button "本年" [ref=e316] [cursor=pointer]
+            - button "累计" [ref=e317] [cursor=pointer]
+        - generic [ref=e318]:
+          - generic "任务状态" [ref=e319]:
+            - button "待派发 24" [ref=e320] [cursor=pointer]:
+              - generic [ref=e321]: 待派发
+              - strong [ref=e322]: "24"
+            - button "派发中 36" [ref=e323] [cursor=pointer]:
+              - generic [ref=e324]: 派发中
+              - strong [ref=e325]: "36"
+            - button "已接单 48" [ref=e326] [cursor=pointer]:
+              - generic [ref=e327]: 已接单
+              - strong [ref=e328]: "48"
+            - button "已结单 12" [pressed] [ref=e329] [cursor=pointer]:
+              - generic [ref=e330]: 已结单
+              - strong [ref=e331]: "12"
+          - generic [ref=e332]:
+            - article [ref=e333]:
+              - generic [ref=e334]: "1"
+              - generic [ref=e336]:
+                - generic [ref=e337]: 江心洲
+                - emphasis [ref=e338]: 5项 · 41.7%
+            - article [ref=e341]:
+              - generic [ref=e342]: "2"
+              - generic [ref=e344]:
+                - generic [ref=e345]: 水务局
+                - emphasis [ref=e346]: 4项 · 33.3%
+            - article [ref=e349]:
+              - generic [ref=e350]: "3"
+              - generic [ref=e352]:
+                - generic [ref=e353]: 交通局
+                - emphasis [ref=e354]: 3项 · 25%
+      - generic [ref=e357]:
+        - generic [ref=e358]:
+          - generic [ref=e359]:
+            - text: FLIGHT ANALYTICS
+            - heading "飞行统计分析" [level=2] [ref=e360]
+          - generic [ref=e361]: 2024.01.01 — 至今
+        - generic [ref=e362]:
+          - generic "统计指标" [ref=e363]:
+            - button "飞行架次" [pressed] [ref=e364] [cursor=pointer]
+            - button "飞行里程" [ref=e365] [cursor=pointer]
+            - button "飞行时长" [ref=e366] [cursor=pointer]
+          - img "飞行统计横向条形图：江心洲 68架；水务局 55架；交通局 45架" [ref=e367]
+          - generic [ref=e370]:
+            - generic [ref=e371]:
+              - generic [ref=e372]: 江心洲
+              - emphasis [ref=e373]: 68 架
+            - generic [ref=e374]:
+              - generic [ref=e375]: 水务局
+              - emphasis [ref=e376]: 55 架
+            - generic [ref=e377]:
+              - generic [ref=e378]: 交通局
+              - emphasis [ref=e379]: 45 架

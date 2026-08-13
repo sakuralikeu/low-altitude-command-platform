@@ -1,0 +1,13 @@
+:root {
+  /* Root size steps for typography and type scaling */
+  --root-size: 15px;
+  @media (min-width: 1600px) { --root-size: 16px; }
+  @media (min-width: 2560px) { --root-size: 17px; }
+  @media (min-width: 3840px) { --root-size: 19px; }
+  @media (min-width: 5120px) { --root-size: 21px; }
+
+  /* Density steps for padding/row heights */
+  --density: 1;
+  @media (min-height: 1200px) { --density: 1.12; }
+  @media (max-height: 900px) { --density: 0.85; }
+}

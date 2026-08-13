@@ -1,0 +1,20 @@
+:root {
+  /* Font stacks */
+  --font-sans: "PingFang SC", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans SC", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "Noto Sans SC", "Microsoft YaHei", monospace;
+
+  /* Typography steps for root-size adaptation */
+  --fs-display-1: clamp(2.25rem, 5vw, 3.75rem);
+  --fs-display-2: clamp(1.75rem, 4vw, 2.75rem);
+  --fs-display-3: clamp(1.5rem, 3vw, 2rem);
+  --fs-h1: clamp(1.25rem, 2.5vw, 1.75rem);
+  --fs-h2: clamp(1.125rem, 2vw, 1.5rem);
+  --fs-h3: 1.25rem;
+  --fs-h4: 1.125rem;
+  --fs-body: 1rem;
+  --fs-sm: 0.875rem;
+  --fs-xs: 0.75rem;
+
+  /* Tabular numerals for alignment */
+  --numeral: tabular-nums;
+}

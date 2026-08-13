@@ -1,0 +1,19 @@
+.git
+.gitignore
+.DS_Store
+node_modules
+**/node_modules
+**/dist
+coverage
+*.log
+*.md
+*.docx
+*.zip
+files
+无人机调度平台实操物料
+
+# Playwright E2E artifacts（不进 Docker 构建上下文）
+e2e/results
+playwright-report
+test-results
+.github

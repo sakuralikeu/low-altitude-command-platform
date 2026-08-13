@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.DS_Store
+coverage/
+*.log
+
+# Playwright E2E artifacts
+e2e/results/
+playwright-report/
+test-results/
+
+# Playwright MCP debug artifacts
+.playwright-mcp/
+lighthouse-report*/

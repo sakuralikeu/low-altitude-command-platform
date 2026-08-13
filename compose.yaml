@@ -1,0 +1,77 @@
+name: low-altitude-platform
+
+services:
+  api:
+    image: low-altitude-api:0.1.0
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      CORS_ORIGIN: http://localhost:${PUBLIC_PORT:-8080}
+      TZ: ${TZ:-Asia/Shanghai}
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 200
+    mem_limit: 256m
+    cpus: 1.0
+    healthcheck:
+      test: [CMD, wget, -qO-, http://127.0.0.1:3000/api/health]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks: [backend]
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+
+  web:
+    image: low-altitude-web:0.1.0
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_AMAP_KEY: ${VITE_AMAP_KEY:-}
+        VITE_AMAP_SECURITY_CODE: ${VITE_AMAP_SECURITY_CODE:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - ${PUBLIC_PORT:-8080}:8080
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=32m,mode=0755
+      - /var/run:size=4m,mode=0755
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 100
+    mem_limit: 128m
+    cpus: 0.5
+    healthcheck:
+      test: [CMD, wget, -qO-, http://127.0.0.1:8080/healthz]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks: [frontend, backend]
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+
+networks:
+  frontend: {}
+  backend:
+    internal: true

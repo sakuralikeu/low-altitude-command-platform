@@ -1,0 +1,20 @@
+:root {
+  /* Base spacing */
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 2rem;
+  --space-8: 3rem;
+  --space-9: 4rem;
+
+  /* Control heights */
+  --control-h: calc(2rem * var(--density));
+  --input-h: calc(2.25rem * var(--density));
+  --control-min: 40px;
+  --control-min-touch: 44px;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}

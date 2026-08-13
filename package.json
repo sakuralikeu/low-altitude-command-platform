@@ -1,0 +1,23 @@
+{
+  "name": "low-altitude-command-platform",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "npm@11.5.2",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace @low-altitude/api",
+    "dev:web": "npm run dev --workspace @low-altitude/web",
+    "build": "npm run build --workspace @low-altitude/api && npm run build --workspace @low-altitude/web",
+    "typecheck": "npm run typecheck --workspace @low-altitude/api && npm run typecheck --workspace @low-altitude/web",
+    "test": "npm run test --workspace @low-altitude/api && npm run test --workspace @low-altitude/web",
+    "e2e": "playwright test -c e2e/playwright.config.mts",
+    "e2e:ui": "playwright test --ui -c e2e/playwright.config.mts",
+    "e2e:report": "playwright show-report e2e/results/report"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.62.1"
+  }
+}

@@ -1,0 +1,51 @@
+@use 'sass:color';
+
+:root {
+  /* Base colors from original — 中性冷灰基底，teal 降饱和去霓虹感 */
+  --bg: #0b0e11;
+  --surface: #11161a;
+  --surface-2: #182026;
+  --line: #2b363d;
+  --line-strong: #42515a;
+  --text: #edf4f1;
+  --muted: #94a3ab;
+  --teal: #38b795;
+  --amber: #f2b84b;
+  --blue: #72a7eb;
+  --red: #ff746c;
+
+  /* Semantic layers */
+  --panel-bg: var(--surface);
+  --panel-border: var(--line);
+  --panel-border-strong: var(--line-strong);
+  --text-primary: var(--text);
+  --text-secondary: var(--muted);
+  --accent: var(--teal);
+  --accent-hover: #4cc4a2;
+  --accent-ink: #061310;
+  --accent-soft: #14312b;
+  --alert: var(--red);
+  --warning: var(--amber);
+  --success: var(--teal);
+
+  /* Interface-specific surfaces & lines — 去绿调，改中性冷灰 */
+  --surface-deep: #10181c;
+  --surface-input: #0e1418;
+  --line-soft: #1e2a30;
+  --track: #172127;
+  --border-emphasis: #3d4b53;
+
+  /* Text steps: faint = 10px indices/labels, soft = secondary numerals */
+  --text-faint: #8697a0;
+  --text-soft: #cbd8d4;
+
+  /* Contrast layers for high contrast */
+  --border-subtle: color.mix(var(--line), var(--bg), 15%);
+  --border-strong: var(--line-strong);
+  --focus-ring: var(--teal);
+  --focus-ring-offset: 2px;
+}
+
+[data-theme="dark"] {
+  /* Additional dark theme overrides if needed */
+}
