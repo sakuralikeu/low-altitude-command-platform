@@ -1,3 +1,6 @@
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
+
 export type Period = 'today' | 'week' | 'month' | 'year' | 'all'
 export type TaskStatus = 'dispatched' | 'dispatching' | 'received' | 'completed'
 
@@ -57,6 +60,8 @@ export type FlightRoute = {
   waypoints?: LngLat[]
   /** 当前被哪架飞机执行（派发沿航线时写入，工单结案释放） */
   usedByAircraftId?: string
+  /** 用户在地图画线创建的航线：参与 JSON 文件持久化（重启不丢） */
+  userCreated?: boolean
 }
 
 export const flightRoutes: FlightRoute[] = [
@@ -70,6 +75,12 @@ export const flightRoutes: FlightRoute[] = [
   { id: 'RT-008', name: '山区巡检航线', orgName: '自然资源局', aircraftId: 'UAV-04', aircraftName: '交通-12', distanceKm: 31.2, durationMinutes: 52, altitudeM: 108, status: 'planned', latestRecordId: '1010' },
 ]
 
+/* ===== 用户规划航线持久化（JSON 文件，Docker 挂载 /data；未挂载时静默降级为内存态） ===== */
+const ROUTES_FILE = process.env.ROUTES_FILE || '/data/flight-routes.json'
+
+/** 启动时恢复用户规划航线（持久化文件存在则合并进目录） */
+loadUserRoutes()
+
 /** 按名称关键词过滤航线（大屏/作业台搜索共用） */
 export function filterFlightRoutes(query: string): FlightRoute[] {
   const keyword = query.trim().toLowerCase()
@@ -77,9 +88,29 @@ export function filterFlightRoutes(query: string): FlightRoute[] {
   return flightRoutes.filter((route) => route.name.toLowerCase().includes(keyword) || route.orgName.toLowerCase().includes(keyword))
 }
 
+/** 启动时加载用户创建的航线（合并到内存目录，按 id 去重） */
+function loadUserRoutes() {
+  try {
+    const parsed = JSON.parse(readFileSync(ROUTES_FILE, 'utf8')) as FlightRoute[]
+    for (const route of parsed) {
+      if (route.userCreated && route.waypoints && !flightRoutes.some((item) => item.id === route.id)) {
+        flightRoutes.push(route)
+      }
+    }
+  } catch { /* 首次启动或文件不存在：使用默认演示数据 */ }
+}
+
+/** 持久化用户创建的航线（创建/状态变化后调用） */
+export function persistUserRoutes() {
+  try {
+    mkdirSync(dirname(ROUTES_FILE), { recursive: true })
+    writeFileSync(ROUTES_FILE, JSON.stringify(flightRoutes.filter((route) => route.userCreated), null, 2))
+  } catch { /* 只读环境（未挂载 volume）：内存态兜底 */ }
+}
+
 /**
  * 创建规划航线（地图画线保存，S2 派发可选沿航线执行）。
- * 航点 ≥2 个，距离/时长按 Haversine 与巡航速度 12m/s 推算；id 顺序自增。
+ * 航点 ≥2 个，距离/时长按 Haversine 与巡航速度 12m/s 推算；id 顺序自增；写入持久化文件。
  */
 export function createFlightRoute(input: { name: string; waypoints: LngLat[]; altitudeM?: number }): FlightRoute | undefined {
   const name = input.name.trim()
@@ -96,8 +127,10 @@ export function createFlightRoute(input: { name: string; waypoints: LngLat[]; al
     altitudeM: input.altitudeM ?? 80,
     status: 'planned',
     waypoints: input.waypoints,
+    userCreated: true,
   }
   flightRoutes.push(route)
+  persistUserRoutes()
   return route
 }
 

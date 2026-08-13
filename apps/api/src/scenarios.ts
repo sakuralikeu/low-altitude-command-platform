@@ -1,5 +1,5 @@
 /** 场景模块：智能调度推荐 / 工单闭环 / 设备健康 / 识别事件 / 实时合规检测 */
-import { aircraft, dispatchRoutes, dispatchTargets, flightRoutes, organizations, type Aircraft } from './data.js'
+import { aircraft, dispatchRoutes, dispatchTargets, flightRoutes, organizations, persistUserRoutes, type Aircraft } from './data.js'
 import { distanceToPolygon, findZoneViolations, haversineMeters, noFlyZones } from './geo.js'
 
 /* ========== 机型参数（额定续航，演示口径） ========== */
@@ -194,8 +194,8 @@ export function transitionWorkOrder(id: string, to: WorkOrderStatus): WorkOrder 
       if (usedRoute) {
         usedRoute.status = 'planned'
         usedRoute.usedByAircraftId = undefined
-      }
-    }
+        persistUserRoutes()
+      }    }
   }
   return order
 }

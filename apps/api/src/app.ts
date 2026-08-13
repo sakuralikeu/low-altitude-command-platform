@@ -5,7 +5,7 @@ import helmet from 'helmet'
 import { z } from 'zod'
 import { authenticate, requireRole, signAccessToken } from './auth.js'
 import { config } from './config.js'
-import { aircraft, createFlightRoute, filterFlightRoutes, flightAnalytics, flightRecords, flightRoutes, getFlightReplay, getFlightRoutePreview, getShelters, getTaskRanking, nextAircraftSnapshot } from './data.js'
+import { aircraft, createFlightRoute, filterFlightRoutes, flightAnalytics, flightRecords, flightRoutes, getFlightReplay, getFlightRoutePreview, getShelters, getTaskRanking, nextAircraftSnapshot, persistUserRoutes } from './data.js'
 import { overview } from './data.js'
 import { noFlyZones } from './geo.js'
 import {
@@ -169,6 +169,7 @@ export function createApp() {
       route.status = 'active'
       route.usedByAircraftId = target.aircraftId
       routeName = route.name
+      persistUserRoutes()
     } else {
       applyDispatch(target.aircraftId, parsed.data.lng, parsed.data.lat, taskLabel)
     }

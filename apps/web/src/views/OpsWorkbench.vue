@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, LogOut, MonitorDot, PanelLeftClose, PanelLeftOpen, Radar, Route as RouteIcon, Save, ShieldCheck, Sparkles, UserRound, Wrench, X } from 'lucide-vue-next'
+import { ArrowLeft, CheckCircle2, ClipboardList, LogOut, MonitorDot, PanelLeftClose, PanelLeftOpen, Radar, Route as RouteIcon, Save, ShieldCheck, Sparkles, UserRound, Wrench, X } from 'lucide-vue-next'
 import PanelShell from '@/components/PanelShell.vue'
 import DispatchPanel from '@/components/DispatchPanel.vue'
 import WorkOrderPanel from '@/components/WorkOrderPanel.vue'
@@ -30,7 +30,6 @@ const aircraft = ref<Aircraft[]>([])
 const zones = ref<NoFlyZone[]>([])
 const shelters = ref<Shelter[]>([])
 const selectedId = ref('')
-const mapCollapsed = ref(false)
 const navCollapsed = ref(false)
 const focusRequest = ref<{ lng: number; lat: number; seq: number } | null>(null)
 const targetPoint = ref<{ lng: number; lat: number } | null>(null)
@@ -243,7 +242,7 @@ onMounted(() => {
       </nav>
 
       <section class="workbench-content">
-        <div class="workbench-map" :class="{ collapsed: mapCollapsed }">
+        <div class="workbench-map">
           <header>
             <span>作业态势</span>
             <div class="map-header-tools">
@@ -256,12 +255,9 @@ onMounted(() => {
               <template v-else>
                 <button type="button" class="map-tool-btn" :class="{ active: planning }" aria-label="进入航线规划" title="在地图上点击航点规划新航线" @click="togglePlanning"><RouteIcon />规划航线</button>
               </template>
-              <button type="button" class="map-collapse" :aria-expanded="!mapCollapsed" :aria-label="mapCollapsed ? '展开作业地图' : '折叠作业地图'" @click="mapCollapsed = !mapCollapsed">
-                <ChevronRight v-if="mapCollapsed" /><template v-if="!mapCollapsed">折叠地图<ChevronDown /></template>
-              </button>
             </div>
           </header>
-          <OperationsMap v-if="!mapCollapsed" :aircraft="aircraft" :connected="connected" :selected-id="selectedId" :zones="zones" :conflicts="conflictPairs" :target="targetPoint" :shelters="shelters" :planning="planning" :plan-points="planPoints" :focus="focusRequest" @select="pickMapPoint" @pick="onMapPick" @plan-point="onPlanPoint" @shelter-select="onShelterDispatch" @clear="selectedId = ''" />
+          <OperationsMap :aircraft="aircraft" :connected="connected" :selected-id="selectedId" :zones="zones" :conflicts="conflictPairs" :target="targetPoint" :shelters="shelters" :planning="planning" :plan-points="planPoints" :focus="focusRequest" @select="pickMapPoint" @pick="onMapPick" @plan-point="onPlanPoint" @shelter-select="onShelterDispatch" @clear="selectedId = ''" />
         </div>
 
         <PanelShell class="workbench-panel" :title="panelTitle" :eyebrow="panelEyebrow">
