@@ -17,3 +17,5 @@ test-results/
 lighthouse-report*/
 
 **/data/flight-routes.json
+
+certs/
