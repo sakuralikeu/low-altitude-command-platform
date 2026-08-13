@@ -16,7 +16,8 @@ RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --ignore-scripts
 FROM node:22.18.0-alpine3.22 AS runtime
 ENV NODE_ENV=production PORT=3000
 WORKDIR /app
-RUN addgroup -S -g 10001 app && adduser -S -D -H -u 10001 -G app app
+RUN addgroup -S -g 10001 app && adduser -S -D -H -u 10001 -G app app \
+  && mkdir -p /data && chown -R app:app /data
 COPY --from=runtime-deps --chown=app:app /runtime/node_modules ./node_modules
 COPY --from=runtime-deps --chown=app:app /runtime/package.json ./package.json
 COPY --from=build --chown=app:app /app/apps/api/dist ./dist
