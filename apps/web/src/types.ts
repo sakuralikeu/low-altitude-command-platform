@@ -12,6 +12,7 @@ export type FlightReplay = {
 export type FlightRoute = {
   id: string; name: string; orgName: string; aircraftId: string; aircraftName: string
   distanceKm: number; durationMinutes: number; altitudeM: number; status: 'active' | 'planned'; latestRecordId?: string
+  waypoints?: Array<[number, number]>; usedByAircraftId?: string
 }
 export type TaskStatus = 'dispatched' | 'dispatching' | 'received' | 'completed'
 export type Period = 'today' | 'week' | 'month' | 'year' | 'all'
@@ -24,6 +25,13 @@ export type FlightAnalytics = { id: string; name: string; recordCount: number; f
 export type Aircraft = {
   id: string; name: string; model: string; longitude: number; latitude: number; altitudeM: number; speedMps: number
   headingDeg: number; batteryPercent: number; status: 'flying' | 'standby' | 'warning'; task: string
+  shelterId?: string; offline?: boolean
+}
+
+/* ===== 方舱（S1 下钻：方舱 → 驻泊无人机 → 调度） ===== */
+export type Shelter = {
+  id: string; name: string; enabled: boolean; longitude?: number; latitude?: number; note?: string
+  aircraft: Aircraft[]
 }
 
 /* ===== 场景模块类型（S2/S3/S4/S5/S7/S10） ===== */
@@ -51,7 +59,7 @@ export type WorkOrder = {
 
 export type AircraftHealth = {
   aircraftId: string; name: string; model: string; flightHours: number; totalFlights: number
-  healthScore: number
+  healthScore: number; offline?: boolean
   parts: Array<{ part: string; limit: number; used: number; remainingPercent: number; advice: string }>
 }
 

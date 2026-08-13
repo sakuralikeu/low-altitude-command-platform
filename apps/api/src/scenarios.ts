@@ -302,7 +302,7 @@ export function getAircraftHealth(): AircraftHealth[] {
       }
     })
     const healthScore = Math.max(45, Math.round(100 - (seed.flightHours / 1500) * 40 - (seed.batteryCycles / 300) * 30))
-    return { aircraftId: item.id, name: item.name, model: item.model, flightHours: seed.flightHours, totalFlights: seed.totalFlights, healthScore, parts }
+    return { aircraftId: item.id, name: item.name, model: item.model, flightHours: seed.flightHours, totalFlights: seed.totalFlights, healthScore, offline: item.offline ?? false, parts }
   })
 }
 

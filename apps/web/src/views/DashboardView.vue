@@ -15,7 +15,7 @@ import { useAircraftStream } from '@/composables/useAircraftStream'
 import { usePolledResource } from '@/composables/usePolledResource'
 import { alertEventKey, eventLabel, useRealtimeAlerts } from '@/composables/useRealtimeAlerts'
 import { isSoundEnabled, setSoundEnabled } from '@/utils/alertSound'
-import type { Aircraft, ConflictPair, FlightAnalytics, FlightRecord, FlightReplay, FlightRoute, NoFlyZone, Overview, Period, RealtimeAlertEvent, TaskRanking, TaskStatus, WorkOrder } from '@/types'
+import type { Aircraft, ConflictPair, FlightAnalytics, FlightRecord, FlightReplay, FlightRoute, NoFlyZone, Overview, Period, RealtimeAlertEvent, Shelter, TaskRanking, TaskStatus, WorkOrder } from '@/types'
 import { formatRecordTime } from '@/utils/format'
 
 const router = useRouter()
@@ -28,6 +28,8 @@ const ranking = ref<TaskRanking>()
 const analytics = ref<FlightAnalytics[]>([])
 const aircraft = ref<Aircraft[]>([])
 const zones = ref<NoFlyZone[]>([])
+const shelters = ref<Shelter[]>([])
+const routeQuery = ref('')
 const period = ref<Period>('month')
 const taskStatus = ref<TaskStatus>('completed')
 const analyticMetric = ref<'recordCount' | 'flightLength' | 'durationHours'>('recordCount')
@@ -80,8 +82,19 @@ const todayTasks = computed(() => ranking.value ? Object.values(ranking.value.to
 const chartValues = computed(() => analytics.value.map((row) => Number(row[analyticMetric.value])))
 const chartColor = computed(() => analyticMetric.value === 'recordCount' ? 'var(--accent)' : analyticMetric.value === 'flightLength' ? 'var(--warning)' : 'var(--blue)')
 const drawerTitle = computed(() => ({ flying: '执行中无人机', alerts: '运行告警', tasks: '今日任务概览', routes: '飞行航线目录' })[drawerMode.value])
-const drawerCount = computed(() => drawerMode.value === 'flying' ? executingAircraft.value.length : drawerMode.value === 'alerts' ? warningCount.value : drawerMode.value === 'routes' ? routes.value.length : todayTasks.value)
+const drawerCount = computed(() => drawerMode.value === 'flying' ? executingAircraft.value.length : drawerMode.value === 'alerts' ? warningCount.value : drawerMode.value === 'routes' ? filteredRoutes.value.length : todayTasks.value)
 const drawerAria = computed(() => drawerTitle.value)
+/** 航线目录搜索：名称 / 单位关键词过滤 */
+const filteredRoutes = computed(() => {
+  const keyword = routeQuery.value.trim().toLowerCase()
+  return keyword ? routes.value.filter((route) => route.name.toLowerCase().includes(keyword) || route.orgName.toLowerCase().includes(keyword)) : routes.value
+})
+
+/** 方舱弹窗「去调度」：跳转作业台并预选该飞机 */
+function onShelterDispatch(item: Aircraft) {
+  if (!canOperate.value) { pushToast({ key: 'shelter-denied', title: '无调度权限', detail: '当前账号仅可查看态势，调度需要操作员权限', kind: 'info' }); return }
+  void router.push({ path: '/workspace', query: { module: 'dispatch', aircraftId: item.id, lng: item.longitude, lat: item.latitude } })
+}
 
 function progressClass(percent: number) {
   return percent >= 20 ? 'lvl-mid' : 'lvl-low'
@@ -103,15 +116,16 @@ async function loadRanking(silent = false) {
 async function loadBase(silent = false) {
   if (!silent) { loading.value = true; error.value = '' }
   try {
-    const [o, r, a, ac, z, routeResponse] = await Promise.all([
+    const [o, r, a, ac, z, routeResponse, shelterResponse] = await Promise.all([
       api<{ data: Overview }>('/v1/dashboard/overview'),
       api<{ data: { rows: FlightRecord[] } }>('/v1/flight-records?limit=10'),
       api<{ data: { rows: FlightAnalytics[] } }>('/v1/metrics/flights'),
       api<{ data: { rows: Aircraft[] } }>('/v1/aircraft'),
       api<{ data: { rows: NoFlyZone[] } }>('/v1/geo/no-fly-zones'),
       api<{ data: { rows: FlightRoute[] } }>('/v1/flight-routes'),
+      api<{ data: { rows: Shelter[] } }>('/v1/shelters'),
     ])
-    overview.value = o.data; records.value = r.data.rows; analytics.value = a.data.rows; aircraft.value = ac.data.rows; zones.value = z.data.rows; routes.value = routeResponse.data.rows
+    overview.value = o.data; records.value = r.data.rows; analytics.value = a.data.rows; aircraft.value = ac.data.rows; zones.value = z.data.rows; routes.value = routeResponse.data.rows; shelters.value = shelterResponse.data.rows
     error.value = ''
     await loadRanking(true)
   } catch (reason) {
@@ -384,7 +398,7 @@ onBeforeUnmount(() => {
           <button type="button" class="map-kpi-btn" :class="{ alert: warningCount }" title="查看运行告警列表" aria-label="查看运行告警列表" @click="openDetailDrawer('alerts')"><AlertTriangle /><div><span>运行告警</span><strong><MetricValue :value="warningCount" /></strong></div><small>条</small><i v-if="warningCount" class="kpi-beacon" /></button>
           <button type="button" class="map-kpi-btn" title="查看今日任务" aria-label="查看今日任务" @click="openDetailDrawer('tasks')"><ShieldCheck /><div><span>今日任务</span><strong><MetricValue :value="todayTasks" /></strong></div><small>项</small></button>
         </div>
-        <OperationsMap :aircraft="aircraft" :connected="connected" :selected-id="selectedId" :zones="zones" :conflicts="conflictPairs" :focus="focusRequest" @select="focusAircraft" @clear="selectedId = ''; activeAlert = undefined" />
+        <OperationsMap :aircraft="aircraft" :connected="connected" :selected-id="selectedId" :zones="zones" :conflicts="conflictPairs" :shelters="shelters" :focus="focusRequest" @select="focusAircraft" @shelter-select="onShelterDispatch" @clear="selectedId = ''; activeAlert = undefined" />
       </section>
 
       <aside class="dashboard-column right-column">
@@ -439,13 +453,16 @@ onBeforeUnmount(() => {
             <div class="task-total-grid"><span v-for="item in statuses" :key="item.key"><em>{{ item.label }}</em><strong>{{ ranking?.totals[item.key] ?? 0 }}</strong></span></div>
             <ol><li v-for="row in ranking?.rows" :key="row.id"><span>{{ row.name }}</span><strong>{{ row.total }} 项</strong><em>{{ row.percent }}%</em></li></ol>
           </div>
-          <ul v-else-if="drawerMode === 'routes'" class="route-drawer-list">
-            <li v-for="route in routes" :key="route.id">
+          <div v-else-if="drawerMode === 'routes'" class="route-drawer-list">
+            <div class="route-search-row"><RouteIcon /><input v-model="routeQuery" class="route-search-input" type="text" maxlength="40" placeholder="搜索航线名称 / 单位…" aria-label="搜索航线" /></div>
+            <ul>
+              <li v-for="route in filteredRoutes" :key="route.id">
               <div class="route-drawer-info"><b>{{ route.name }}</b><small>{{ route.orgName }} · {{ route.aircraftName }} · {{ route.distanceKm }}km / {{ route.durationMinutes }}min / {{ route.altitudeM }}m</small></div>
               <span :class="['route-state', route.status]">{{ route.status === 'active' ? '运行中' : '计划' }}</span>
               <div class="route-actions"><button type="button" :disabled="previewLoadingId === route.id" :aria-label="`预览 ${route.name}`" @click="previewRoute(route)"><Eye />{{ previewLoadingId === route.id ? '载入中' : '预览' }}</button><button v-if="route.latestRecordId" type="button" :aria-label="`回放 ${route.name}`" @click="replayRouteHistory(route)"><Play />回放</button></div>
             </li>
-          </ul>
+            </ul>
+          </div>
           <template v-else>
           <ul v-if="visibleWarningAircraft.length" class="alert-list">
             <li v-for="item in visibleWarningAircraft" :key="item.id">

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, LogOut, MonitorDot, PanelLeftClose, PanelLeftOpen, Radar, ShieldCheck, Sparkles, UserRound, Wrench, X } from 'lucide-vue-next'
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, LogOut, MonitorDot, PanelLeftClose, PanelLeftOpen, Radar, Route as RouteIcon, Save, ShieldCheck, Sparkles, UserRound, Wrench, X } from 'lucide-vue-next'
 import PanelShell from '@/components/PanelShell.vue'
 import DispatchPanel from '@/components/DispatchPanel.vue'
 import WorkOrderPanel from '@/components/WorkOrderPanel.vue'
@@ -13,7 +13,7 @@ import { api } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useAircraftStream } from '@/composables/useAircraftStream'
 import { useRealtimeAlerts } from '@/composables/useRealtimeAlerts'
-import type { Aircraft, ConflictPair, DispatchTaskType, FlightReplay, FlightRoute, NoFlyZone } from '@/types'
+import type { Aircraft, ConflictPair, DispatchTaskType, FlightReplay, FlightRoute, NoFlyZone, Shelter } from '@/types'
 
 type WorkbenchKey = 'dispatch' | 'workorder' | 'health' | 'ai'
 
@@ -28,11 +28,18 @@ const replayDialogOpen = ref(false)
 const previewLoadingId = ref('')
 const aircraft = ref<Aircraft[]>([])
 const zones = ref<NoFlyZone[]>([])
+const shelters = ref<Shelter[]>([])
 const selectedId = ref('')
 const mapCollapsed = ref(false)
 const navCollapsed = ref(false)
 const focusRequest = ref<{ lng: number; lat: number; seq: number } | null>(null)
 const targetPoint = ref<{ lng: number; lat: number } | null>(null)
+/** 航线规划模式：地图点击加点 → 命名保存 → 新航线进首页目录；派发可选沿航线执行 */
+const planning = ref(false)
+const planPoints = ref<Array<[number, number]>>([])
+const planName = ref('')
+const preferredAircraftId = ref('')
+const savingPlan = ref(false)
 let focusSeq = 0
 
 const dispatchContext = ref<{
@@ -66,6 +73,7 @@ function applyRouteQuery() {
   const module = String(route.query.module ?? '')
   if (module === 'dispatch' || module === 'workorder' || module === 'health' || module === 'ai') activeKey.value = module
   highlightTicket.value = String(route.query.ticket ?? '')
+  preferredAircraftId.value = String(route.query.aircraftId ?? '')
   const lng = Number(route.query.lng)
   const lat = Number(route.query.lat)
   const taskType = String(route.query.taskType ?? '') as DispatchTaskType
@@ -78,6 +86,47 @@ function applyRouteQuery() {
       label: typeof route.query.label === 'string' ? route.query.label : undefined,
     }
     focusRequest.value = { lng, lat, seq: ++focusSeq }
+  }
+}
+
+/** 方舱弹窗「去调度」：切到调度面板并预选该飞机（候选存在则高亮，否则提示） */
+function onShelterDispatch(item: Aircraft) {
+  preferredAircraftId.value = item.id
+  activeKey.value = 'dispatch'
+  dispatchContext.value = { ...dispatchContext.value, lng: item.longitude, lat: item.latitude, label: `${item.name}（方舱）` }
+  targetPoint.value = { lng: item.longitude, lat: item.latitude }
+  focusRequest.value = { lng: item.longitude, lat: item.latitude, seq: ++focusSeq }
+  pushToast({ key: `shelter-${item.id}`, title: `已选中 ${item.name}`, detail: '候选列表已预选，确认后派发（方舱→无人机→调度）', kind: 'info' })
+}
+
+/** 进入/退出航线规划：地图点击加点，至少 2 点可命名保存 */
+function togglePlanning() {
+  planning.value = !planning.value
+  if (!planning.value) { planPoints.value = []; planName.value = '' }
+  else selectedId.value = ''
+}
+
+function onPlanPoint(lng: number, lat: number) {
+  if (planPoints.value.length >= 20) { pushToast({ key: 'plan-max', title: '航点已达上限', detail: '单条航线最多 20 个航点', kind: 'info' }); return }
+  planPoints.value = [...planPoints.value, [lng, lat]]
+}
+
+async function savePlan() {
+  if (planPoints.value.length < 2) { pushToast({ key: 'plan-min', title: '航点不足', detail: '至少需要 2 个航点', kind: 'info' }); return }
+  const name = planName.value.trim()
+  if (!name) { pushToast({ key: 'plan-name', title: '请填写航线名称', detail: '命名后保存进首页航线目录', kind: 'info' }); return }
+  savingPlan.value = true
+  try {
+    const response = await api<{ data: FlightRoute }>('/v1/flight-routes', { method: 'POST', body: JSON.stringify({ name, waypoints: planPoints.value }) })
+    pushToast({ key: `plan-${Date.now()}`, title: '航线已保存', detail: `${response.data.id} · ${response.data.name} · ${response.data.distanceKm}km / ${response.data.durationMinutes}min，已加入航线目录`, kind: 'success' })
+    planPoints.value = []
+    planName.value = ''
+    planning.value = false
+    void loadRoutes()
+  } catch (reason) {
+    pushToast({ key: 'plan-fail', title: '航线保存失败', detail: reason instanceof Error ? reason.message : '请稍后重试', kind: 'info' })
+  } finally {
+    savingPlan.value = false
   }
 }
 
@@ -124,16 +173,24 @@ function onMapPick(lng: number, lat: number) {
   pushToast({ key: `pick-${Date.now()}`, title: '已按地图选点重算推荐', detail: `${lng.toFixed(4)}, ${lat.toFixed(4)} · 可在下方调整任务类型与优先级`, kind: 'info' })
 }
 
+/** 设备下线/恢复后同步地图飞机数据 */
+function syncAircraft(item: Aircraft) {
+  const index = aircraft.value.findIndex((entry) => entry.id === item.id)
+  if (index >= 0) aircraft.value[index] = item
+}
+
 async function loadRoutes() {
   try {
-    const [routeResponse, zoneResponse, aircraftResponse] = await Promise.all([
+    const [routeResponse, zoneResponse, aircraftResponse, shelterResponse] = await Promise.all([
       api<{ data: { rows: FlightRoute[] } }>('/v1/flight-routes'),
       api<{ data: { rows: NoFlyZone[] } }>('/v1/geo/no-fly-zones'),
       api<{ data: { rows: Aircraft[] } }>('/v1/aircraft'),
+      api<{ data: { rows: Shelter[] } }>('/v1/shelters'),
     ])
     routes.value = routeResponse.data.rows
     zones.value = zoneResponse.data.rows
     aircraft.value = aircraftResponse.data.rows
+    shelters.value = shelterResponse.data.rows
   } catch { /* 工作台底图为增强能力，失败不阻断作业 */ }
 }
 
@@ -189,17 +246,28 @@ onMounted(() => {
         <div class="workbench-map" :class="{ collapsed: mapCollapsed }">
           <header>
             <span>作业态势</span>
-            <button type="button" class="map-collapse" :aria-expanded="!mapCollapsed" :aria-label="mapCollapsed ? '展开作业地图' : '折叠作业地图'" @click="mapCollapsed = !mapCollapsed">
-              <ChevronRight v-if="mapCollapsed" /><template v-if="!mapCollapsed">折叠地图<ChevronDown /></template>
-            </button>
+            <div class="map-header-tools">
+              <template v-if="planning">
+                <span class="planning-hint"><RouteIcon />规划中 · {{ planPoints.length }} 点</span>
+                <input v-model="planName" class="plan-name-input" type="text" maxlength="40" placeholder="航线名称" aria-label="航线名称" @keydown.enter="savePlan" />
+                <button type="button" class="map-tool-btn primary" :disabled="savingPlan" aria-label="保存航线" @click="savePlan"><Save />{{ savingPlan ? '保存中…' : '保存' }}</button>
+                <button type="button" class="map-tool-btn" aria-label="取消规划" @click="togglePlanning">取消</button>
+              </template>
+              <template v-else>
+                <button type="button" class="map-tool-btn" :class="{ active: planning }" aria-label="进入航线规划" title="在地图上点击航点规划新航线" @click="togglePlanning"><RouteIcon />规划航线</button>
+              </template>
+              <button type="button" class="map-collapse" :aria-expanded="!mapCollapsed" :aria-label="mapCollapsed ? '展开作业地图' : '折叠作业地图'" @click="mapCollapsed = !mapCollapsed">
+                <ChevronRight v-if="mapCollapsed" /><template v-if="!mapCollapsed">折叠地图<ChevronDown /></template>
+              </button>
+            </div>
           </header>
-          <OperationsMap v-if="!mapCollapsed" :aircraft="aircraft" :connected="connected" :selected-id="selectedId" :zones="zones" :conflicts="conflictPairs" :target="targetPoint" :focus="focusRequest" @select="pickMapPoint" @pick="onMapPick" @clear="selectedId = ''" />
+          <OperationsMap v-if="!mapCollapsed" :aircraft="aircraft" :connected="connected" :selected-id="selectedId" :zones="zones" :conflicts="conflictPairs" :target="targetPoint" :shelters="shelters" :planning="planning" :plan-points="planPoints" :focus="focusRequest" @select="pickMapPoint" @pick="onMapPick" @plan-point="onPlanPoint" @shelter-select="onShelterDispatch" @clear="selectedId = ''" />
         </div>
 
         <PanelShell class="workbench-panel" :title="panelTitle" :eyebrow="panelEyebrow">
-          <DispatchPanel v-if="activeKey === 'dispatch'" :task-type="dispatchContext.taskType" :lng="dispatchContext.lng" :lat="dispatchContext.lat" :priority="dispatchContext.priority" :label="dispatchContext.label" @dispatched="onDispatched" />
+          <DispatchPanel v-if="activeKey === 'dispatch'" :task-type="dispatchContext.taskType" :lng="dispatchContext.lng" :lat="dispatchContext.lat" :priority="dispatchContext.priority" :label="dispatchContext.label" :preferred-id="preferredAircraftId" @dispatched="onDispatched" />
           <WorkOrderPanel v-else-if="activeKey === 'workorder'" :highlight-id="highlightTicket" @preview-route="previewWorkOrderRoute" />
-          <HealthPanel v-else-if="activeKey === 'health'" @created="onWorkOrderCreated" />
+          <HealthPanel v-else-if="activeKey === 'health'" @created="onWorkOrderCreated" @aircraft-changed="syncAircraft" />
           <AiEventsPanel v-else @dispatch="onAiDispatch" />
         </PanelShell>
       </section>

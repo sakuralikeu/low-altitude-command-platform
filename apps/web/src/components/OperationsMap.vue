@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AMapLoader from '@amap/amap-jsapi-loader'
-import { Crosshair, LocateFixed, Minus, Plane, Plus, Satellite, Map as MapIcon, Moon, RotateCw, Target, WifiOff, X } from 'lucide-vue-next'
-import type { Aircraft, ConflictPair, NoFlyZone } from '@/types'
+import { Crosshair, LocateFixed, Minus, Plane, Plus, Satellite, Map as MapIcon, Moon, RotateCw, Target, Warehouse, WifiOff, X } from 'lucide-vue-next'
+import type { Aircraft, ConflictPair, NoFlyZone, Shelter } from '@/types'
 
 type BasemapMode = 'vector' | 'satellite' | 'dark'
 type MapState = 'demo' | 'loading' | 'ready' | 'error'
@@ -47,8 +47,8 @@ interface AMapNamespace {
 const MODEL_RATED_MINUTES: Record<string, number> = { 'M350 RTK': 55, 'M30T': 41, 'M3E': 45 }
 const ENDURANCE_WARN_PERCENT = 40
 
-const props = defineProps<{ aircraft: Aircraft[]; connected: boolean; selectedId: string; zones: NoFlyZone[]; conflicts?: ConflictPair[]; target?: { lng: number; lat: number } | null; focus?: { lng: number; lat: number; seq: number } | null }>()
-const emit = defineEmits<{ select: [aircraft: Aircraft]; pick: [lng: number, lat: number]; clear: [] }>()
+const props = defineProps<{ aircraft: Aircraft[]; connected: boolean; selectedId: string; zones: NoFlyZone[]; conflicts?: ConflictPair[]; target?: { lng: number; lat: number } | null; shelters?: Shelter[]; planning?: boolean; planPoints?: Array<[number, number]>; focus?: { lng: number; lat: number; seq: number } | null }>()
+const emit = defineEmits<{ select: [aircraft: Aircraft]; pick: [lng: number, lat: number]; planPoint: [lng: number, lat: number]; shelterSelect: [aircraft: Aircraft]; clear: [] }>()
 
 const mapRoot = ref<HTMLElement>()
 const mode = ref<BasemapMode>('dark')
@@ -85,9 +85,43 @@ const targetPosition = computed(() => props.target ? {
   top: `${100 - ((props.target.lat - bounds.minLat) / (bounds.maxLat - bounds.minLat)) * 100}%`,
 } : null)
 
+/** 启用的方舱（演示模式标记 + 弹窗数据源） */
+const enabledShelters = computed(() => (props.shelters ?? []).filter((shelter) => shelter.enabled && shelter.longitude !== undefined && shelter.latitude !== undefined))
+const selectedShelter = ref<Shelter>()
+const shelterPosition = (shelter: Shelter) => ({
+  left: `${((shelter.longitude! - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 100}%`,
+  top: `${100 - ((shelter.latitude! - bounds.minLat) / (bounds.maxLat - bounds.minLat)) * 100}%`,
+})
+
+/** 演示模式规划折线与航点（SVG 坐标） */
+const planSegments = computed(() => {
+  const points = props.planPoints ?? []
+  return {
+    line: points.slice(1).map((to, index) => {
+      const from = zonePointToPercent(points[index]!)
+      const end = zonePointToPercent(to)
+      return { key: index, x1: from.x, y1: from.y, x2: end.x, y2: end.y }
+    }),
+    dots: points.map((point, index) => ({ key: index, ...zonePointToPercent(point), first: index === 0 })),
+  }
+})
+
 function onDemoPick(event: MouseEvent) {
   const point = demoPointFromEvent(event)
-  if (point) pickPoint(point.lng, point.lat)
+  if (!point) return
+  if (props.planning) emit('planPoint', point.lng, point.lat)
+  else emit('pick', point.lng, point.lat)
+}
+
+function selectShelter(shelter: Shelter) {
+  selectedShelter.value = selectedShelter.value?.id === shelter.id ? undefined : shelter
+}
+
+function shelterAircraftLabel(item: Aircraft) {
+  if (item.offline) return '已下线'
+  if (item.status === 'flying') return '执行中'
+  if (item.status === 'warning') return '告警'
+  return '待命'
 }
 
 let AMap: AMapNamespace | undefined
@@ -95,6 +129,8 @@ let map: AMapInstance | undefined
 const markers = new Map<string, AMapMarker>()
 const polygons = new Map<string, AMapPolygon>()
 const conflictLines = new Map<string, AMapPolyline>()
+const shelterMarkers = new Map<string, AMapMarker>()
+let planPolyline: AMapPolyline | undefined
 let targetMarker: AMapMarker | undefined
 
 /** 演示模式点击换算经纬度（与 zonePointToPercent 的投影一致） */
@@ -137,7 +173,7 @@ function createPlaneGlyph(className: string) {
 }
 
 function markerClassName(item: Aircraft) {
-  return `amap-aircraft-marker ${item.status}${props.selectedId === item.id ? ' selected' : ''}`
+  return `amap-aircraft-marker ${item.status}${item.offline ? ' offline' : ''}${props.selectedId === item.id ? ' selected' : ''}`
 }
 
 function createMarkerContent(item: Aircraft) {
@@ -159,6 +195,7 @@ function createMarkerContent(item: Aircraft) {
 }
 
 function selectAircraft(item: Aircraft) {
+  selectedShelter.value = undefined
   if (props.selectedId === item.id) emit('clear')
   else emit('select', item)
 }
@@ -264,6 +301,65 @@ function syncTarget() {
   targetMarker.setMap(map!)
 }
 
+/** 方舱标记（S1 下钻）：高德 Marker，点击弹窗展示驻泊无人机 */
+function syncShelters() {
+  if (!map || !AMap) return
+  const activeIds = new Set(enabledShelters.value.map((shelter) => shelter.id))
+  shelterMarkers.forEach((marker, id) => {
+    if (!activeIds.has(id)) {
+      marker.setMap(null)
+      shelterMarkers.delete(id)
+    }
+  })
+  for (const shelter of enabledShelters.value) {
+    if (shelterMarkers.has(shelter.id)) return
+    const root = document.createElement('button')
+    root.type = 'button'
+    root.className = 'amap-shelter-marker'
+    root.setAttribute('aria-label', `${shelter.name}，${shelter.note ?? '方舱'}`)
+    root.setAttribute('title', `${shelter.name} · ${shelter.note ?? ''}`)
+    const glyph = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    glyph.setAttribute('viewBox', '0 0 24 24')
+    glyph.setAttribute('fill', 'none')
+    glyph.setAttribute('stroke', 'currentColor')
+    glyph.setAttribute('stroke-width', '2')
+    glyph.setAttribute('stroke-linecap', 'round')
+    glyph.setAttribute('stroke-linejoin', 'round')
+    glyph.setAttribute('aria-hidden', 'true')
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    path.setAttribute('d', 'M22 8.35V10a10 10 0 0 1-.03 1.04A8.99 8.99 0 0 1 19.73 19H4.27a8.99 8.99 0 0 1-2.24-7.96L2 8.35 12 3l10 5.35z')
+    glyph.append(path)
+    const label = document.createElement('span')
+    label.className = 'amap-shelter-label'
+    label.textContent = shelter.name.replace('号方舱', '')
+    root.append(glyph, label)
+    root.addEventListener('click', (event) => {
+      event.stopPropagation()
+      selectShelter(shelter)
+    })
+    const marker = new AMap!.Marker({ position: [shelter.longitude!, shelter.latitude!], anchor: 'center', content: root, zIndex: 80 })
+    marker.setMap(map!)
+    shelterMarkers.set(shelter.id, marker)
+  }
+}
+
+/** 规划航线折线（地图画线）：高德 Polyline + 航点圆点 */
+function syncPlanLine() {
+  if (!map || !AMap) return
+  const points = props.planPoints ?? []
+  if (points.length < 2) {
+    planPolyline?.setMap(null)
+    planPolyline = undefined
+    return
+  }
+  if (!planPolyline) {
+    planPolyline = new AMap!.Polyline({ path: points, strokeColor: '#45d6aa', strokeWeight: 3, strokeOpacity: 0.9, strokeStyle: 'solid', lineJoin: 'round', zIndex: 86 })
+    planPolyline.setMap(map!)
+  } else {
+    planPolyline.setPath(points)
+  }
+}
+
 function applyBasemap(nextMode: BasemapMode) {
   mode.value = nextMode
   if (!map || !AMap) return
@@ -305,12 +401,15 @@ async function initializeMap() {
     map.on('click', (event) => {
       const lng = Number(event.lnglat.lng.toFixed(6))
       const lat = Number(event.lnglat.lat.toFixed(6))
-      emit('pick', lng, lat)
+      if (props.planning) emit('planPoint', lng, lat)
+      else emit('pick', lng, lat)
     })
     syncMarkers()
     syncZones()
     syncConflicts()
     syncTarget()
+    syncShelters()
+    syncPlanLine()
     patchThirdPartyA11y()
   } catch (error) {
     console.error('AMap initialization failed', error)
@@ -332,6 +431,8 @@ watch(() => props.selectedId, () => syncMarkers())
 watch(() => props.zones, () => syncZones(), { deep: true })
 watch(() => props.conflicts, () => syncConflicts(), { deep: true })
 watch(() => props.target, () => syncTarget())
+watch(() => props.shelters, () => { syncShelters(); if (!enabledShelters.value.some((shelter) => shelter.id === selectedShelter.value?.id)) selectedShelter.value = undefined }, { deep: true })
+watch(() => props.planPoints, () => syncPlanLine(), { deep: true })
 /** 聚焦定位：指定坐标居中放大（真实地图 setZoomAndCenter；演示底图放大至最高倍） */
 watch(() => props.focus, (focus) => {
   if (!focus) return
@@ -339,7 +440,7 @@ watch(() => props.focus, (focus) => {
   else demoZoom.value = 1.4
 })
 onMounted(async () => { await nextTick(); await initializeMap() })
-onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); markers.clear(); polygons.forEach((polygon) => polygon.setMap(null)); polygons.clear(); conflictLines.forEach((line) => line.setMap(null)); conflictLines.clear(); targetMarker?.setMap(null); targetMarker = undefined; map?.destroy() })
+onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); markers.clear(); polygons.forEach((polygon) => polygon.setMap(null)); polygons.clear(); conflictLines.forEach((line) => line.setMap(null)); conflictLines.clear(); shelterMarkers.forEach((marker) => marker.setMap(null)); shelterMarkers.clear(); planPolyline?.setMap(null); planPolyline = undefined; targetMarker?.setMap(null); targetMarker = undefined; map?.destroy() })
 </script>
 
 <template>
@@ -354,8 +455,15 @@ onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); marker
       <svg class="conflict-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <line v-for="segment in conflictSegments" :key="segment.key" :x1="segment.x1.toFixed(2)" :y1="segment.y1.toFixed(2)" :x2="segment.x2.toFixed(2)" :y2="segment.y2.toFixed(2)" :class="['conflict-line', { critical: segment.critical }]" />
       </svg>
+      <svg v-if="planSegments.line.length" class="plan-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <line v-for="segment in planSegments.line" :key="segment.key" :x1="segment.x1.toFixed(2)" :y1="segment.y1.toFixed(2)" :x2="segment.x2.toFixed(2)" :y2="segment.y2.toFixed(2)" class="plan-line" />
+        <circle v-for="dot in planSegments.dots" :key="dot.key" :cx="dot.x.toFixed(2)" :cy="dot.y.toFixed(2)" r="1.2" :class="['plan-dot', { first: dot.first }]" />
+      </svg>
       <div v-if="targetPosition" class="target-marker" :style="targetPosition" role="img" :aria-label="`调度目标点 ${props.target?.lng}, ${props.target?.lat}`"><Target /></div>
-      <button v-for="item in aircraft" :key="item.id" type="button" class="aircraft-marker" :class="[item.status, { selected: selectedId === item.id }]" :style="demoPosition(item)" :aria-label="`${item.name}，${item.task}，电量 ${item.batteryPercent}%`" @click="selectAircraft(item)">
+      <button v-for="shelter in enabledShelters" :key="shelter.id" type="button" class="shelter-marker" :class="{ selected: selectedShelter?.id === shelter.id }" :style="shelterPosition(shelter)" :aria-label="`${shelter.name}，${shelter.note ?? '方舱'}`" :title="`${shelter.name} · ${shelter.note ?? ''}`" @click="selectShelter(shelter)">
+        <Warehouse /><span>{{ shelter.name.replace('号方舱', '') }}</span>
+      </button>
+      <button v-for="item in aircraft" :key="item.id" type="button" class="aircraft-marker" :class="[item.status, { offline: item.offline, selected: selectedId === item.id }]" :style="demoPosition(item)" :aria-label="`${item.name}，${item.task}，电量 ${item.batteryPercent}%`" @click="selectAircraft(item)">
         <Plane class="aircraft-shape" />
         <span class="aircraft-label">{{ item.name }}</span>
       </button>
@@ -383,6 +491,18 @@ onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); marker
       <div v-if="endurance" class="endurance-line" :class="{ warn: endurance.low }">
         <span>预计续航</span><strong>{{ endurance.remainingMinutes }} min</strong><em v-if="endurance.low">电量偏低 · 建议返航</em><em v-else>续航充足</em>
       </div>
+    </div>
+
+    <div v-if="selectedShelter" class="aircraft-popover shelter-popover" role="status">
+      <div class="popover-title"><span class="shelter-dot" /><Warehouse />{{ selectedShelter.name }}<small>{{ selectedShelter.id }}</small><button type="button" class="popover-close" aria-label="关闭方舱详情" @click="selectedShelter = undefined"><X /></button></div>
+      <p class="shelter-note">{{ selectedShelter.note ?? '方舱' }} · {{ selectedShelter.aircraft.length }} 架驻泊</p>
+      <ul class="shelter-fleet">
+        <li v-for="item in selectedShelter.aircraft" :key="item.id">
+          <div class="shelter-fleet-info"><b>{{ item.name }}</b><small>{{ item.model }} · {{ shelterAircraftLabel(item) }} · 电量 {{ item.batteryPercent }}%</small></div>
+          <button type="button" class="shelter-dispatch-btn" :disabled="item.offline" :aria-label="item.offline ? `${item.name} 已下线` : `对 ${item.name} 智能调度`" :title="item.offline ? '已下线，不可调度' : '带入智能调度' " @click="emit('shelterSelect', item)">{{ item.offline ? '已下线' : '去调度' }}</button>
+        </li>
+        <li v-if="!selectedShelter.aircraft.length" class="shelter-fleet-empty">该方舱暂无驻泊无人机</li>
+      </ul>
     </div>
   </section>
 </template>

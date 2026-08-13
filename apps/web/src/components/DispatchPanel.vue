@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import { Radar, Send, TriangleAlert } from 'lucide-vue-next'
+import { computed, onMounted, ref, watch } from 'vue'
+import { Radar, Route as RouteIcon, Send, TriangleAlert, X } from 'lucide-vue-next'
 import { api } from '@/services/api'
-import type { DispatchCandidate, DispatchTaskType } from '@/types'
+import type { DispatchCandidate, DispatchTaskType, FlightRoute } from '@/types'
 
 const props = withDefaults(defineProps<{
   taskType?: DispatchTaskType
@@ -10,6 +10,8 @@ const props = withDefaults(defineProps<{
   lat?: number
   priority?: 'normal' | 'high'
   label?: string
+  /** 外部指定飞机（方舱弹窗/URL 带入）：候选存在则预选 */
+  preferredId?: string
 }>(), {
   taskType: 'inspect',
   lng: 121.4737,
@@ -38,19 +40,49 @@ const error = ref('')
 const dispatching = ref(false)
 const selectedId = ref('')
 const confirmOpen = ref(false)
+/** 沿航线执行：航线目录（可搜索），选中后派发带 routeId，飞机依次飞经航点 */
+const routeList = ref<FlightRoute[]>([])
+const routeQuery = ref('')
+const selectedRouteId = ref('')
+const routeLoading = ref(false)
 
 const selected = () => rows.value.find((item) => item.aircraftId === selectedId.value)
+const filteredRoutes = computed(() => {
+  const keyword = routeQuery.value.trim().toLowerCase()
+  return keyword ? routeList.value.filter((route) => route.name.toLowerCase().includes(keyword) || route.orgName.toLowerCase().includes(keyword)) : routeList.value
+})
+
+async function loadRoutes() {
+  routeLoading.value = true
+  try {
+    const response = await api<{ data: { rows: FlightRoute[] } }>('/v1/flight-routes')
+    routeList.value = response.data.rows
+  } catch { /* 航线为可选项，加载失败不阻断派发 */ }
+  finally { routeLoading.value = false }
+}
 
 async function recommend() {
   loading.value = true; error.value = ''; confirmOpen.value = false
   try {
     const response = await api<{ data: { rows: DispatchCandidate[] } }>(`/v1/dispatch/candidates?taskType=${taskType.value}&lng=${lng.value}&lat=${lat.value}&priority=${priority.value}`)
     rows.value = response.data.rows
-    selectedId.value = rows.value[0]?.aircraftId ?? ''
+    applyPreferred()
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : '推荐失败'
   } finally {
     loading.value = false
+  }
+}
+
+/** 外部指定飞机：候选存在则预选，否则提示不可调度 */
+function applyPreferred() {
+  if (!props.preferredId) { selectedId.value = rows.value[0]?.aircraftId ?? ''; return }
+  if (rows.value.some((item) => item.aircraftId === props.preferredId)) {
+    selectedId.value = props.preferredId
+    error.value = ''
+  } else {
+    selectedId.value = ''
+    error.value = '指定无人机当前不可调度（可能已下线/任务中/电量不足），请从候选列表选择'
   }
 }
 
@@ -60,7 +92,10 @@ async function dispatch() {
   try {
     const response = await api<{ data: { taskId: string; aircraftName: string; etaMinutes: number; message: string } }>('/v1/dispatch/tasks', {
       method: 'POST',
-      body: JSON.stringify({ taskType: taskType.value, lng: lng.value, lat: lat.value, priority: priority.value, aircraftId: selectedId.value }),
+      body: JSON.stringify({
+        taskType: taskType.value, lng: lng.value, lat: lat.value, priority: priority.value, aircraftId: selectedId.value,
+        ...(selectedRouteId.value ? { routeId: selectedRouteId.value } : {}),
+      }),
     })
     confirmOpen.value = false
     emit('dispatched', response.data.message)
@@ -86,7 +121,8 @@ function scoreClass(score: number) {
 }
 
 watch(() => [props.taskType, props.lng, props.lat, props.priority, props.label], applyContext)
-onMounted(recommend)
+watch(() => props.preferredId, () => { if (props.preferredId) applyPreferred() })
+onMounted(() => { void recommend(); void loadRoutes() })
 </script>
 
 <template>
@@ -106,6 +142,18 @@ onMounted(recommend)
           </div>
         </div>
         <button type="button" class="dispatch-query" title="按当前条件重新评估" aria-label="重新评估推荐结果" @click="recommend()"><Radar />重新评估</button>
+      </div>
+
+      <div class="route-pick">
+        <header><RouteIcon />执行航线（可选）<span v-if="routeLoading" class="route-loading">载入中…</span><button v-if="selectedRouteId" type="button" class="route-clear" aria-label="清除航线选择" @click="selectedRouteId = ''"><X />清除</button></header>
+        <input v-model="routeQuery" class="route-search" type="text" maxlength="40" placeholder="搜索航线名称 / 单位…" aria-label="搜索航线" />
+        <div v-if="filteredRoutes.length" class="route-pick-list">
+          <button v-for="route in filteredRoutes" :key="route.id" type="button" :class="{ active: selectedRouteId === route.id }" :aria-pressed="selectedRouteId === route.id" :disabled="route.status === 'active' && !route.usedByAircraftId" :aria-label="`选择航线 ${route.name}`" @click="selectedRouteId = route.id">
+            <span class="route-pick-name">{{ route.name }}<em :class="route.status">{{ route.status === 'active' ? '运行中' : '计划' }}</em></span>
+            <small>{{ route.distanceKm }}km · {{ route.durationMinutes }}min{{ route.waypoints?.length ? ` · ${route.waypoints.length} 航点` : '' }}</small>
+          </button>
+        </div>
+        <p v-else-if="routeQuery" class="route-empty">无匹配航线</p>
       </div>
     </div>
 

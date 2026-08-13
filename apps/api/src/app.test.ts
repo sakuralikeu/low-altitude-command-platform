@@ -206,4 +206,84 @@ describe('scenario modules', () => {
     expect(releasedPlane.status).toBe('standby')
     expect(releasedPlane.task).toBe('待命')
   })
+
+  it('航线规划：创建航线进入目录、可搜索、预览使用真实航点', async () => {
+    const created = await request(app).post('/api/v1/flight-routes').set('Authorization', `Bearer ${token}`).send({
+      name: '测试规划航线', waypoints: [[121.44, 31.2], [121.46, 31.21], [121.48, 31.2]],
+    })
+    expect(created.status).toBe(201)
+    expect(created.body.data.waypoints.length).toBe(3)
+    expect(created.body.data.distanceKm).toBeGreaterThan(0)
+
+    const list = await request(app).get('/api/v1/flight-routes?q=测试规划').set('Authorization', `Bearer ${token}`)
+    expect(list.status).toBe(200)
+    expect(list.body.data.rows.length).toBe(1)
+    expect(list.body.data.rows[0].id).toBe(created.body.data.id)
+
+    const preview = await request(app).get(`/api/v1/flight-routes/${created.body.data.id}/preview`).set('Authorization', `Bearer ${token}`)
+    expect(preview.status).toBe(200)
+    expect(preview.body.data.planned.length).toBeGreaterThan(20)
+  })
+
+  it('方舱下钻：返回启用方舱及其驻泊无人机', async () => {
+    const response = await request(app).get('/api/v1/shelters').set('Authorization', `Bearer ${token}`)
+    expect(response.status).toBe(200)
+    const rows = response.body.data.rows as Array<{ id: string; enabled: boolean; aircraft: Array<{ id: string }> }>
+    expect(rows.length).toBeGreaterThanOrEqual(11)
+    const enabled = rows.filter((row) => row.enabled)
+    expect(enabled.length).toBeGreaterThanOrEqual(6)
+    const withFleet = enabled.find((row) => row.aircraft.length > 0)
+    expect(withFleet).toBeTruthy()
+  })
+
+  it('下线：无人机停用后不进入候选，恢复后可再调度', async () => {
+    const list = await request(app).get('/api/v1/aircraft').set('Authorization', `Bearer ${token}`)
+    const standby = (list.body.data.rows as Array<{ id: string; status: string; offline?: boolean }>).find((row) => row.status === 'standby' && !row.offline)
+    expect(standby).toBeTruthy()
+
+    const offline = await request(app).post(`/api/v1/aircraft/${standby!.id}/offline`).set('Authorization', `Bearer ${token}`).send({ offline: true })
+    expect(offline.status).toBe(200)
+    expect(offline.body.data.offline).toBe(true)
+    expect(offline.body.data.task).toBe('已下线')
+
+    const candidates = await request(app).get('/api/v1/dispatch/candidates?taskType=inspect&lng=121.47&lat=31.22').set('Authorization', `Bearer ${token}`)
+    const ids = (candidates.body.data.rows as Array<{ aircraftId: string }>).map((row) => row.aircraftId)
+    expect(ids).not.toContain(standby!.id)
+
+    const restore = await request(app).post(`/api/v1/aircraft/${standby!.id}/offline`).set('Authorization', `Bearer ${token}`).send({ offline: false })
+    expect(restore.status).toBe(200)
+    expect(restore.body.data.offline).toBe(false)
+  })
+
+  it('沿航线派发：航线置 active 并绑定飞机，工单结案后释放回 planned', async () => {
+    const created = await request(app).post('/api/v1/flight-routes').set('Authorization', `Bearer ${token}`).send({
+      name: '沿航线执行测试', waypoints: [[121.44, 31.2], [121.46, 31.22]],
+    })
+    const routeId = created.body.data.id as string
+
+    const list = await request(app).get('/api/v1/aircraft').set('Authorization', `Bearer ${token}`)
+    const standby = (list.body.data.rows as Array<{ id: string; name: string; status: string; offline?: boolean }>).find((row) => row.status === 'standby' && !row.offline)
+    const dispatch = await request(app).post('/api/v1/dispatch/tasks').set('Authorization', `Bearer ${token}`).send({
+      taskType: 'inspect', lng: 121.47, lat: 31.22, aircraftId: standby!.id, routeId,
+    })
+    expect(dispatch.status).toBe(200)
+    expect(dispatch.body.data.message).toContain('沿航线')
+
+    const routes = await request(app).get('/api/v1/flight-routes').set('Authorization', `Bearer ${token}`)
+    const used = (routes.body.data.rows as Array<{ id: string; status: string; usedByAircraftId?: string }>).find((row) => row.id === routeId)
+    expect(used!.status).toBe('active')
+    expect(used!.usedByAircraftId).toBe(standby!.id)
+
+    // 工单结案 → 航线释放
+    const orders = await request(app).get('/api/v1/work-orders').set('Authorization', `Bearer ${token}`)
+    const ticket = (orders.body.data.rows as Array<{ id: string; title: string; status: string }>).find((row) => row.title.includes('沿航线执行测试'))
+    expect(ticket).toBeTruthy()
+    await request(app).post(`/api/v1/work-orders/${ticket!.id}/transition`).set('Authorization', `Bearer ${token}`).send({ to: 'received' })
+    await request(app).post(`/api/v1/work-orders/${ticket!.id}/transition`).set('Authorization', `Bearer ${token}`).send({ to: 'executing' })
+    await request(app).post(`/api/v1/work-orders/${ticket!.id}/transition`).set('Authorization', `Bearer ${token}`).send({ to: 'completed' })
+    const released = await request(app).get('/api/v1/flight-routes').set('Authorization', `Bearer ${token}`)
+    const releasedRoute = (released.body.data.rows as Array<{ id: string; status: string; usedByAircraftId?: string }>).find((row) => row.id === routeId)
+    expect(releasedRoute!.status).toBe('planned')
+    expect(releasedRoute!.usedByAircraftId).toBeUndefined()
+  })
 })

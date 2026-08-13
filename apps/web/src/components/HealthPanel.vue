@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { Wrench } from 'lucide-vue-next'
+import { Power, Wrench } from 'lucide-vue-next'
 import { api } from '@/services/api'
-import type { AircraftHealth, WorkOrder } from '@/types'
+import type { Aircraft, AircraftHealth, WorkOrder } from '@/types'
 
-const emit = defineEmits<{ created: [message: string] }>()
+const emit = defineEmits<{ created: [message: string]; aircraftChanged: [aircraft: Aircraft] }>()
 
 const rows = ref<AircraftHealth[]>([])
 const loading = ref(false)
 const error = ref('')
 const creatingId = ref('')
+const togglingId = ref('')
 
 function scoreClass(score: number) {
   return score >= 80 ? 'lvl-top' : score >= 65 ? 'lvl-mid' : 'lvl-low'
@@ -27,6 +28,24 @@ async function load() {
     error.value = reason instanceof Error ? reason.message : '设备数据载入失败'
   } finally {
     loading.value = false
+  }
+}
+
+/** 下线/恢复无人机：下线后不参与调度、遥测悬停、不告警；恢复后回到待命 */
+async function toggleOffline(item: AircraftHealth) {
+  togglingId.value = item.aircraftId
+  try {
+    const next = !item.offline
+    const response = await api<{ data: Aircraft }>(`/v1/aircraft/${item.aircraftId}/offline`, {
+      method: 'POST',
+      body: JSON.stringify({ offline: next }),
+    })
+    emit('aircraftChanged', response.data)
+    await load()
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : '状态切换失败'
+  } finally {
+    togglingId.value = ''
   }
 }
 
@@ -72,9 +91,14 @@ onMounted(load)
             <span>{{ part.part }}</span><i><em :class="scoreClass(part.remainingPercent)" :style="{ width: `${part.remainingPercent}%` }" /></i><small>{{ part.remainingPercent }}%</small>
           </div>
           <p v-if="item.parts.some((part) => part.remainingPercent < 15)" class="health-advice"><Wrench />{{ item.parts.find((part) => part.remainingPercent < 15)?.advice }}</p>
-          <button v-if="item.healthScore < 70 || item.parts.some((part) => part.remainingPercent < 15)" type="button" class="health-action" :disabled="creatingId === item.aircraftId" :aria-label="`为 ${item.name} 生成保养工单`" @click="createMaintenance(item)">
-            <Wrench />{{ creatingId === item.aircraftId ? '生成中…' : '生成保养工单' }}
-          </button>
+          <div class="health-actions">
+            <button v-if="item.healthScore < 70 || item.parts.some((part) => part.remainingPercent < 15)" type="button" class="health-action" :disabled="creatingId === item.aircraftId" :aria-label="`为 ${item.name} 生成保养工单`" @click="createMaintenance(item)">
+              <Wrench />{{ creatingId === item.aircraftId ? '生成中…' : '生成保养工单' }}
+            </button>
+            <button type="button" class="health-action offline-toggle" :class="{ offline: item.offline }" :disabled="togglingId === item.aircraftId" :aria-label="item.offline ? `恢复 ${item.name} 上线` : `下线 ${item.name}`" @click="toggleOffline(item)">
+              <Power />{{ togglingId === item.aircraftId ? '切换中…' : item.offline ? '恢复上线' : '下线' }}
+            </button>
+          </div>
         </div>
       </li>
     </ul>
