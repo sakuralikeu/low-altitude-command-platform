@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Radar, Route as RouteIcon, Send, TriangleAlert, X } from 'lucide-vue-next'
 import { api } from '@/services/api'
 import type { DispatchCandidate, DispatchTaskType, FlightRoute } from '@/types'
@@ -74,15 +74,27 @@ async function recommend() {
   }
 }
 
-/** 外部指定飞机：候选存在则预选，否则提示不可调度 */
+/**
+ * 外部指定飞机（方舱/URL 带入）：候选存在则预选；
+ * 匹配失败时提示一次（5s 自动消失）并回退默认推荐，避免错误信息常驻。
+ */
+let preferredNotified = false
+let noticeTimer: number | undefined
+
 function applyPreferred() {
   if (!props.preferredId) { selectedId.value = rows.value[0]?.aircraftId ?? ''; return }
   if (rows.value.some((item) => item.aircraftId === props.preferredId)) {
     selectedId.value = props.preferredId
     error.value = ''
-  } else {
-    selectedId.value = ''
-    error.value = '指定无人机当前不可调度（可能已下线/任务中/电量不足），请从候选列表选择'
+    return
+  }
+  // 指定机不在候选：回退默认推荐，仅提示一次
+  selectedId.value = rows.value[0]?.aircraftId ?? ''
+  if (!preferredNotified) {
+    preferredNotified = true
+    error.value = '指定无人机当前不可调度（已下线/任务中/电量不足），已按默认推荐选择'
+    window.clearTimeout(noticeTimer)
+    noticeTimer = window.setTimeout(() => { error.value = '' }, 5000)
   }
 }
 
@@ -121,8 +133,14 @@ function scoreClass(score: number) {
 }
 
 watch(() => [props.taskType, props.lng, props.lat, props.priority, props.label], applyContext)
-watch(() => props.preferredId, () => { if (props.preferredId) applyPreferred() })
+watch(() => props.preferredId, (next) => {
+  if (!next) return
+  // 新一轮指定：重置"已提示"标记，允许再次提示
+  preferredNotified = false
+  applyPreferred()
+})
 onMounted(() => { void recommend(); void loadRoutes() })
+onBeforeUnmount(() => window.clearTimeout(noticeTimer))
 </script>
 
 <template>
