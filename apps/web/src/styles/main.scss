@@ -515,3 +515,37 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus-ring)
 /* ===== 暗色底图：亮色栅格瓦片 + CSS 反相滤镜（WebGL darkblue 渲染不稳定时使用） ===== */
 .amap-root.map-dark-filter .amap-layer,
 .replay-track-map.map-dark-filter .amap-layer { filter: invert(1) hue-rotate(180deg) brightness(.88) contrast(.92); }
+
+/* ===== 数据问答面板（S9 规则引擎 + LLM 增强） ===== */
+.qa-panel { min-height: 0; height: 100%; display: flex; flex-direction: column; }
+.qa-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.qa-head small { color: var(--muted); font-size: 9px; }
+.qa-messages { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; display: flex; flex-direction: column; gap: 10px; padding: 2px 2px 12px; }
+.qa-msg { display: flex; gap: 8px; align-items: flex-start; }
+.qa-msg.user { flex-direction: row-reverse; }
+.qa-avatar { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--surface-2); color: var(--accent); }
+.qa-msg.user .qa-avatar { color: var(--blue); }
+.qa-avatar svg { width: 14px; }
+.qa-bubble { max-width: 82%; padding: 9px 12px; border: 1px solid var(--line); background: var(--surface-deep); font-size: 11px; line-height: 1.7; white-space: pre-line; }
+.qa-msg.user .qa-bubble { border-color: rgba(114,167,235,.4); background: rgba(114,167,235,.06); }
+.qa-bubble p { margin: 0; }
+.qa-rows { margin: 9px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.qa-rows li { display: grid; grid-template-columns: minmax(0, 1fr) 90px 56px; align-items: center; gap: 8px; }
+.qa-rows span { overflow: hidden; color: var(--text-soft); font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
+.qa-rows i { display: block; height: 5px; background: var(--track); overflow: hidden; }
+.qa-rows em { display: block; height: 100%; background: var(--accent); }
+.qa-rows strong { color: var(--text); font: 600 11px/1 var(--font-mono), monospace; text-align: right; }
+.qa-suggestions { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 10px; }
+.qa-suggestions button { min-height: 28px; padding: 0 9px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: var(--surface-deep); color: var(--text-soft); font-size: 9px; cursor: pointer; }
+.qa-suggestions button:hover, .qa-suggestions button:focus-visible { border-color: var(--accent); color: var(--accent); }
+.qa-suggestions button:disabled { opacity: .5; cursor: wait; }
+.qa-suggestions svg { width: 11px; color: var(--warning); }
+.qa-input { display: flex; gap: 8px; }
+.qa-input input { min-width: 0; flex: 1; height: 38px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--surface-input); color: var(--text); font-size: 11px; }
+.qa-input input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.qa-input button { min-height: 38px; padding: 0 16px; display: inline-flex; align-items: center; gap: 5px; border: 0; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 11px; cursor: pointer; }
+.qa-input button:hover { background: var(--accent-hover); }
+.qa-input button:disabled { opacity: .5; cursor: not-allowed; }
+.qa-input svg { width: 13px; }
+.qa-hint { margin: 7px 0 0; display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; }
+.qa-hint svg { width: 11px; }

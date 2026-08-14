@@ -79,3 +79,11 @@ export type RealtimeAlertEvent =
 type AlertMeta = { sequence?: number; generatedAt?: string }
 
 export type DispatchTaskType = 'patrol' | 'inspect' | 'emergency'
+
+/* ===== S9 数据智能问答（规则版演示引擎） ===== */
+export type QaAnswer = {
+  reply: string
+  kind: 'text' | 'stats' | 'list'
+  rows?: Array<{ label: string; value: string | number; percent?: number }>
+  note?: string
+}

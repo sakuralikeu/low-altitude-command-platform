@@ -286,4 +286,40 @@ describe('scenario modules', () => {
     expect(releasedRoute!.status).toBe('planned')
     expect(releasedRoute!.usedByAircraftId).toBeUndefined()
   })
+
+  it('S9 问答：架次统计返回真实聚合数据', async () => {
+    const response = await request(app).post('/api/v1/qa/ask').set('Authorization', `Bearer ${token}`).send({ question: '本月飞行了多少架次？' })
+    expect(response.status).toBe(200)
+    expect(response.body.data.kind).toBe('stats')
+    expect(response.body.data.reply).toContain('架次')
+    expect(response.body.data.rows.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('S9 问答：单位排行按任务量排序', async () => {
+    const response = await request(app).post('/api/v1/qa/ask').set('Authorization', `Bearer ${token}`).send({ question: '哪个单位任务最多？' })
+    expect(response.status).toBe(200)
+    const values = response.body.data.rows as Array<{ value: string; percent: number }>
+    expect(values.length).toBeGreaterThanOrEqual(3)
+    expect(values[0]!.percent).toBeGreaterThanOrEqual(values[1]!.percent)
+  })
+
+  it('S9 问答：低电量飞机返回列表', async () => {
+    const response = await request(app).post('/api/v1/qa/ask').set('Authorization', `Bearer ${token}`).send({ question: '有哪些飞机电量低？' })
+    expect(response.status).toBe(200)
+    expect(response.body.data.reply).toContain('电量偏低')
+    expect(response.body.data.rows.length).toBeGreaterThan(0)
+  })
+
+  it('S9 问答：单位对比识别两个组织', async () => {
+    const response = await request(app).post('/api/v1/qa/ask').set('Authorization', `Bearer ${token}`).send({ question: '水务局和公安局谁飞得多？' })
+    expect(response.status).toBe(200)
+    expect(response.body.data.reply).toContain('水务局')
+    expect(response.body.data.reply).toContain('公安局')
+  })
+
+  it('S9 问答：未知问题不编造答案，返回示例引导', async () => {
+    const response = await request(app).post('/api/v1/qa/ask').set('Authorization', `Bearer ${token}`).send({ question: '明天会下雨吗' })
+    expect(response.status).toBe(200)
+    expect(response.body.data.reply).toContain('暂时不会')
+  })
 })

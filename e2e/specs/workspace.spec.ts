@@ -21,8 +21,6 @@ test.describe('workspace @ 1920x1080', () => {
     const navs = await page.locator('.workbench-nav-item').allTextContents()
     expect(navs.length).toBe(5)
     expect(navs[4]).toContain('数据问答')
-    // 数据问答为暂缓项，禁用
-    await expect(page.locator('.workbench-nav-item', { hasText: '数据问答' })).toBeDisabled()
 
     // 智能调度（默认）+ 作业地图
     await expect(page.locator('.panel-shell h2')).toContainText('智能调度推荐')
@@ -55,6 +53,14 @@ test.describe('workspace @ 1920x1080', () => {
     await expect(page.locator('.event-timeline li')).toHaveCount(3)
     await page.locator('.event-detail-drawer .drawer-close').click()
     await expect(page.locator('.event-detail-drawer')).toHaveCount(0)
+
+    // 数据问答（S9 规则引擎 + LLM 增强）
+    await page.locator('.workbench-nav-item', { hasText: '数据问答' }).click()
+    await expect(page.locator('.panel-shell h2')).toContainText('数据智能问答')
+    await expect(page.locator('.qa-panel')).toBeVisible()
+    await page.fill('input[aria-label="输入问题"]', '现在有几架无人机在执行任务？')
+    await page.getByRole('button', { name: '发送问题' }).click()
+    await expect(page.locator('.qa-msg.bot').last().locator('.qa-rows li').first()).toBeVisible({ timeout: 20_000 })
 
     // 返回大屏
     await page.click('[aria-label="返回指挥大屏"]')

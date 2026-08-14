@@ -23,6 +23,7 @@ import {
   transitionWorkOrder,
   type WorkOrderStatus,
 } from './scenarios.js'
+import { answerQuestionWithLLM } from './qa.js'
 
 const captchaStore = new Map<string, { answer: string; expiresAt: number }>()
 const loginSchema = z.object({ username: z.string().min(1), password: z.string().min(1), captchaId: z.string().uuid(), captcha: z.string().length(4) })
@@ -240,9 +241,16 @@ export function createApp() {
     }
   })
 
+  /* ===== S9 数据智能问答（规则引擎 + LLM 增强，模拟数据口径） ===== */
+  app.post('/api/v1/qa/ask', authenticate, async (req, res) => {
+    const parsed = z.object({ question: z.string().min(1).max(120) }).safeParse(req.body)
+    if (!parsed.success) return res.status(400).json({ error: { code: 'VALIDATION_FAILED', message: '问题不能为空' }, traceId: req.id })
+    const data = await answerQuestionWithLLM(parsed.data.question)
+    res.json({ data, traceId: req.id })
+  })
+
   /* ===== 实时遥测流（含合规事件：禁飞区 / 冲突 / 低电量） ===== */
-  app.get('/api/v1/realtime/aircraft', (req, res) => {
-    const token = typeof req.query.token === 'string' ? req.query.token : ''
+  app.get('/api/v1/realtime/aircraft', (req, res) => {    const token = typeof req.query.token === 'string' ? req.query.token : ''
     req.headers.authorization = `Bearer ${token}`
     authenticate(req, res, () => {
       res.setHeader('Content-Type', 'text/event-stream')

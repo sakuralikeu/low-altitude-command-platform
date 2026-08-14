@@ -7,6 +7,7 @@ import DispatchPanel from '@/components/DispatchPanel.vue'
 import WorkOrderPanel from '@/components/WorkOrderPanel.vue'
 import HealthPanel from '@/components/HealthPanel.vue'
 import AiEventsPanel from '@/components/AiEventsPanel.vue'
+import QaPanel from '@/components/QaPanel.vue'
 import ReplayDialog from '@/components/ReplayDialog.vue'
 import OperationsMap from '@/components/OperationsMap.vue'
 import { api } from '@/services/api'
@@ -15,7 +16,7 @@ import { useAircraftStream } from '@/composables/useAircraftStream'
 import { useRealtimeAlerts } from '@/composables/useRealtimeAlerts'
 import type { Aircraft, ConflictPair, DispatchTaskType, FlightReplay, FlightRoute, NoFlyZone, Shelter } from '@/types'
 
-type WorkbenchKey = 'dispatch' | 'workorder' | 'health' | 'ai'
+type WorkbenchKey = 'dispatch' | 'workorder' | 'health' | 'ai' | 'qa'
 
 const router = useRouter()
 const route = useRoute()
@@ -57,20 +58,20 @@ const conflictPairs = computed<ConflictPair[]>(() => alertEvents.value
   .filter((event) => event.type === 'conflict')
   .map((event) => ({ a: event.a, b: event.b, horizontalM: event.horizontalM, verticalM: event.verticalM, severity: event.severity })))
 
-const navItems: Array<{ key: WorkbenchKey | 'qa'; label: string; desc: string; icon: typeof Radar; disabled?: boolean }> = [
+const navItems: Array<{ key: WorkbenchKey; label: string; desc: string; icon: typeof Radar; disabled?: boolean }> = [
   { key: 'dispatch', label: '智能调度', desc: 'S2/S8 · 任务推荐与应急派单', icon: Radar },
   { key: 'workorder', label: '工单闭环', desc: 'S7 · 巡检工单与状态流转', icon: ClipboardList },
   { key: 'health', label: '设备健康', desc: 'S10 · 保养预测与健康分', icon: Wrench },
   { key: 'ai', label: 'AI 事件处置', desc: 'S6 · 识别事件演示流', icon: ShieldCheck },
-  { key: 'qa', label: '数据问答', desc: 'S9 · 暂缓：需指标字典+权限+SQL沙箱', icon: Sparkles, disabled: true },
+  { key: 'qa', label: '数据问答', desc: 'S9 · 规则引擎查数据（演示）', icon: Sparkles },
 ]
 
-const panelTitle = computed(() => ({ dispatch: '智能调度推荐', workorder: '巡检工单闭环', health: '设备健康与维护预测', ai: 'AI 识别事件处置' })[activeKey.value])
-const panelEyebrow = computed(() => ({ dispatch: 'AI DISPATCH S2/S8', workorder: 'WORK ORDER S7', health: 'FLEET HEALTH S10', ai: 'AI RECOGNITION S6' })[activeKey.value])
+const panelTitle = computed(() => ({ dispatch: '智能调度推荐', workorder: '巡检工单闭环', health: '设备健康与维护预测', ai: 'AI 识别事件处置', qa: '数据智能问答' })[activeKey.value])
+const panelEyebrow = computed(() => ({ dispatch: 'AI DISPATCH S2/S8', workorder: 'WORK ORDER S7', health: 'FLEET HEALTH S10', ai: 'AI RECOGNITION S6', qa: 'DATA Q&A S9' })[activeKey.value])
 
 function applyRouteQuery() {
   const module = String(route.query.module ?? '')
-  if (module === 'dispatch' || module === 'workorder' || module === 'health' || module === 'ai') activeKey.value = module
+  if (module === 'dispatch' || module === 'workorder' || module === 'health' || module === 'ai' || module === 'qa') activeKey.value = module
   highlightTicket.value = String(route.query.ticket ?? '')
   preferredAircraftId.value = String(route.query.aircraftId ?? '')
   const lng = Number(route.query.lng)
@@ -264,7 +265,8 @@ onMounted(() => {
           <DispatchPanel v-if="activeKey === 'dispatch'" :task-type="dispatchContext.taskType" :lng="dispatchContext.lng" :lat="dispatchContext.lat" :priority="dispatchContext.priority" :label="dispatchContext.label" :preferred-id="preferredAircraftId" @dispatched="onDispatched" />
           <WorkOrderPanel v-else-if="activeKey === 'workorder'" :highlight-id="highlightTicket" @preview-route="previewWorkOrderRoute" />
           <HealthPanel v-else-if="activeKey === 'health'" @created="onWorkOrderCreated" @aircraft-changed="syncAircraft" />
-          <AiEventsPanel v-else @dispatch="onAiDispatch" />
+          <AiEventsPanel v-else-if="activeKey === 'ai'" @dispatch="onAiDispatch" />
+          <QaPanel v-else-if="activeKey === 'qa'" />
         </PanelShell>
       </section>
     </div>
